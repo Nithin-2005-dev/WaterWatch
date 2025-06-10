@@ -52,7 +52,7 @@ const Graphs = () => {
 
   useEffect(() => {
     const fetchData = async () => {
-      const res = await fetch(`https://water-watch-si4e.vercel.app/api/waterReadings/getWaterReadings/${id}`);
+      const res = await fetch(`/api/waterReadings/getWaterReadings/${id}`);
       const json = await res.json();
       const data = json.data;
 

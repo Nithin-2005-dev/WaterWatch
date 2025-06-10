@@ -60,7 +60,7 @@ const WaterBodies = () => {
         const isSafe = predictionRes.data.prediction[0] === 1
 
         const res = await axios.put(
-          `https://water-watch-si4e.vercel.app/api/environment/updateEnvironment/${openReadingEnvId}`,
+          `/api/environment/updateEnvironment/${openReadingEnvId}`,
           {
             status: isSafe ? 'safe' : 'unsafe',
             readings: predictionPayload,
@@ -76,7 +76,7 @@ const WaterBodies = () => {
           { autoClose: 4000 }
         )
 
-        await axios.post('https://water-watch-si4e.vercel.app/api/waterReadings/addWaterReadings', {
+        await axios.post('/api/waterReadings/addWaterReadings', {
           environment: openReadingEnvId,
           prediction: isSafe,
           ...predictionPayload,
@@ -122,7 +122,7 @@ const WaterBodies = () => {
     }
 
     try {
-      const res = await axios.post('https://water-watch-si4e.vercel.app/api/environment/createEnvironment', newEnv)
+      const res = await axios.post('/api/environment/createEnvironment', newEnv)
       toast.success('Environment added successfully!')
       setShowAddModal(false)
       setNewEnv({ name: '', location: '' })

@@ -33,7 +33,7 @@ const DashBoardGraphs = () => {
   useEffect(() => {
     const fetchEnvironments = async () => {
       try {
-        const res = await axios.get('https://water-watch-si4e.vercel.app/api/environment/getEnvironments/68452e3a837ff10bf4c35b0f');
+        const res = await axios.get('/api/environment/getEnvironments/68452e3a837ff10bf4c35b0f');
         setEnvironments(res.data.environments);
       } catch (err) {
         console.error('Error fetching environments:', err);
