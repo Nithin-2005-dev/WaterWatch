@@ -4,6 +4,7 @@ import axios from 'axios'
 import { EnvironmentStore } from '@/store/EnvironmentsStore'
 import { ToastContainer, toast } from 'react-toastify'
 import 'react-toastify/dist/ReactToastify.css'
+import { jwtDecode } from 'jwt-decode'
 
 const parameters = [
   { key: 'ph', label: 'pH', unit: '', tip: 'Measure the pH level using a portable pH meter or pH test strips dipped into the waterbody.', validate: val => val >= 0 && val <= 14, errorMsg: 'Enter a valid pH between 0 and 14' },
@@ -18,15 +19,20 @@ const parameters = [
 ]
 
 const WaterBodies = () => {
+  const token = localStorage.getItem("token")
+  const decoded = jwtDecode(token)
+  const userId = decoded.id
+
   const { currEnvironments, getEnvironments } = useContext(EnvironmentStore)
+
   const [openReadingEnvId, setOpenReadingEnvId] = useState(null)
   const [step, setStep] = useState(0)
   const [values, setValues] = useState({})
   const [error, setError] = useState('')
   const [showAddModal, setShowAddModal] = useState(false)
-  const [newEnv, setNewEnv] = useState({ name: '', location: '' ,userId:"68452e3a837ff10bf4c35b0f"})
+  const [newEnv, setNewEnv] = useState({ name: '', location: '', userId })
   const [formError, setFormError] = useState('')
-
+const [submit,setSubmit]=useState(false);
   useEffect(() => {
     getEnvironments()
   }, [])
@@ -52,15 +58,15 @@ const WaterBodies = () => {
         parameters.forEach(({ key }) => {
           predictionPayload[key] = parseFloat(values[key])
         })
-
+        setSubmit(true);
         const predictionRes = await axios.post(
-          'http://127.0.0.1:5000/predict',
+          'https://waterwatch-c6xs.onrender.com/predict',
           predictionPayload
         )
         const isSafe = predictionRes.data.prediction[0] === 1
 
         const res = await axios.put(
-          `/api/environment/updateEnvironment/${openReadingEnvId}`,
+          `https://water-watch-si4e.vercel.app/api/environment/updateEnvironment/${openReadingEnvId}`,
           {
             status: isSafe ? 'safe' : 'unsafe',
             readings: predictionPayload,
@@ -68,19 +74,19 @@ const WaterBodies = () => {
         )
 
         const updatedEnv = res.data.environment
-        const latestSuggestion =
-          updatedEnv.recommandations[updatedEnv.recommandations.length - 1]
+        const latestSuggestion = updatedEnv.recommandations[updatedEnv.recommandations.length - 1]
 
         toast.info(
           `💧 Status: ${isSafe ? 'Safe ✅' : 'Unsafe ❌'}\n💡 Suggestion: ${latestSuggestion}`,
           { autoClose: 4000 }
         )
 
-        await axios.post('/api/waterReadings/addWaterReadings', {
+        await axios.post('https://water-watch-si4e.vercel.app/api/waterReadings/addWaterReadings', {
           environment: openReadingEnvId,
           prediction: isSafe,
           ...predictionPayload,
         })
+        setSubmit(false)
         setTimeout(() => {
           window.location.reload()
         }, 5000)
@@ -122,10 +128,10 @@ const WaterBodies = () => {
     }
 
     try {
-      const res = await axios.post('/api/environment/createEnvironment', newEnv)
+      const res = await axios.post('https://water-watch-si4e.vercel.app/api/environment/createEnvironment', newEnv)
       toast.success('Environment added successfully!')
       setShowAddModal(false)
-      setNewEnv({ name: '', location: '' })
+      setNewEnv({ name: '', location: '', userId })
       getEnvironments()
     } catch (err) {
       toast.error('Failed to add environment.')
@@ -134,15 +140,16 @@ const WaterBodies = () => {
   }
 
   return (
-    <section className="flex flex-col">
+    <section className="flex flex-col min-h-screen p-4">
       <ToastContainer position="top-right" autoClose={3000} />
-
-      <button
+{
+  !currEnvironments.length==0 && <button
         onClick={() => setShowAddModal(true)}
         className="px-5 py-3 rounded-xl font-semibold bg-gradient-to-r from-green-400 to-green-600 hover:from-green-500 hover:to-green-700 text-white shadow-lg transition-all duration-300 float-right my-2 w-fit self-end"
       >
         + Add Environment
       </button>
+}
 
       {showAddModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30">
@@ -164,16 +171,10 @@ const WaterBodies = () => {
             />
             {formError && <p className="text-red-500 text-sm mb-2">{formError}</p>}
             <div className="flex justify-end gap-3">
-              <button
-                onClick={() => setShowAddModal(false)}
-                className="px-4 py-2 rounded-md bg-gray-300 hover:bg-gray-400"
-              >
+              <button onClick={() => setShowAddModal(false)} className="px-4 py-2 rounded-md bg-gray-300 hover:bg-gray-400">
                 Cancel
               </button>
-              <button
-                onClick={handleAddEnvironment}
-                className="px-4 py-2 rounded-md bg-green-600 text-white hover:bg-green-700"
-              >
+              <button onClick={handleAddEnvironment} className="px-4 py-2 rounded-md bg-green-600 text-white hover:bg-green-700">
                 Create
               </button>
             </div>
@@ -181,9 +182,21 @@ const WaterBodies = () => {
         </div>
       )}
 
-      <div className="flex flex-col gap-6 justify-center w-full items-center my-3">
-        {currEnvironments &&
-          currEnvironments.map((env) => (
+      {currEnvironments?.length === 0 ? (
+        <div className="flex flex-col items-center justify-center text-center text-gray-600 mt-32 animate-fadeIn">
+          <img src="https://i.imghippo.com/files/MTV6870w.png" alt="No data" className="w-64 mb-6" />
+          <h2 className="text-2xl font-semibold mb-2">No Environments Found</h2>
+          <p className="text-sm mb-4">Get started by adding a new environment to monitor water quality!</p>
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="px-6 py-3 bg-green-600 text-white rounded-xl hover:bg-green-700 transition shadow-md"
+          >
+            + Add Environment
+          </button>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-6 justify-center w-full items-center my-3">
+          {currEnvironments.map((env) => (
             <div
               key={env._id}
               className="bg-white bg-opacity-70 backdrop-blur-md rounded-2xl shadow-xl w-3/4 p-8 border border-gray-200"
@@ -216,11 +229,7 @@ const WaterBodies = () => {
 
                 <button
                   onClick={() => startReading(env._id)}
-                  className={`flex-1 ${
-                    openReadingEnvId === env._id
-                      ? 'bg-red-500 hover:bg-red-600'
-                      : 'bg-gradient-to-r from-green-500 to-green-700 hover:from-green-600 hover:to-green-800'
-                  } text-white py-3 rounded-xl font-semibold shadow-lg transition-transform transform hover:scale-105`}
+                  className={`flex-1 ${openReadingEnvId === env._id ? 'bg-red-500 hover:bg-red-600' : 'bg-gradient-to-r from-green-500 to-green-700 hover:from-green-600 hover:to-green-800'} text-white py-3 rounded-xl font-semibold shadow-lg transition-transform transform hover:scale-105`}
                 >
                   {openReadingEnvId === env._id ? 'Cancel Reading' : 'Add Readings'}
                 </button>
@@ -243,9 +252,7 @@ const WaterBodies = () => {
                     value={values[param.key] || ''}
                     onChange={handleChange}
                     placeholder={`Enter ${param.label.toLowerCase()}`}
-                    className={`w-full px-4 py-3 rounded-lg border ${
-                      error ? 'border-red-500 animate-shake' : 'border-gray-300'
-                    } focus:outline-none focus:ring-2 focus:ring-blue-400 mb-2`}
+                    className={`w-full px-4 py-3 rounded-lg border ${error ? 'border-red-500 animate-shake' : 'border-gray-300'} focus:outline-none focus:ring-2 focus:ring-blue-400 mb-2`}
                   />
                   {error && <p className="text-red-500 mb-3 text-sm">{error}</p>}
 
@@ -257,11 +264,7 @@ const WaterBodies = () => {
                     <button
                       onClick={handleBack}
                       disabled={step === 0}
-                      className={`px-5 py-2 rounded-lg font-semibold ${
-                        step === 0
-                          ? 'bg-gray-300 cursor-not-allowed'
-                          : 'bg-blue-600 text-white hover:bg-blue-700'
-                      } transition`}
+                      className={`px-5 py-2 rounded-lg font-semibold ${step === 0 ? 'bg-gray-300 cursor-not-allowed' : 'bg-blue-600 text-white hover:bg-blue-700'} transition`}
                     >
                       Back
                     </button>
@@ -269,7 +272,7 @@ const WaterBodies = () => {
                       onClick={handleNext}
                       className="px-5 py-2 rounded-lg font-semibold bg-blue-600 text-white hover:bg-blue-700 transition"
                     >
-                      {step === parameters.length - 1 ? 'Submit' : 'Next'}
+                      {step === parameters.length - 1 ? !submit?'Submit':'Submitting...' : 'Next'}
                     </button>
                   </div>
 
@@ -277,29 +280,16 @@ const WaterBodies = () => {
                     {parameters.map((_, i) => (
                       <div
                         key={i}
-                        className={`w-3 h-3 rounded-full transition-all duration-300 ${
-                          i === step ? 'bg-blue-600 scale-125' : 'bg-gray-300'
-                        }`}
+                        className={`w-3 h-3 rounded-full transition-all duration-300 ${i === step ? 'bg-blue-600 scale-125' : 'bg-gray-300'}`}
                       />
                     ))}
                   </div>
-
-                  <style>{`
-                    @keyframes shake {
-                      10%, 90% { transform: translateX(-1px); }
-                      20%, 80% { transform: translateX(2px); }
-                      30%, 50%, 70% { transform: translateX(-4px); }
-                      40%, 60% { transform: translateX(4px); }
-                    }
-                    .animate-shake {
-                      animation: shake 0.4s;
-                    }
-                  `}</style>
                 </div>
               )}
             </div>
           ))}
-      </div>
+        </div>
+      )}
     </section>
   )
 }

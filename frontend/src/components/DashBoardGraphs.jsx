@@ -1,5 +1,7 @@
 import axios from 'axios';
 import React, { useEffect, useState } from 'react';
+import { jwtDecode } from 'jwt-decode';
+import { useNavigate } from 'react-router-dom';
 import { Pie, Radar } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
@@ -11,8 +13,7 @@ import {
   LineElement,
   Filler,
 } from 'chart.js';
-import { ShieldCheck, AlertTriangle, X } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { ShieldCheck, AlertTriangle, X, PlusCircle } from 'lucide-react';
 
 ChartJS.register(
   ArcElement,
@@ -29,11 +30,20 @@ const DashBoardGraphs = () => {
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedRecs, setSelectedRecs] = useState([]);
   const [selectedEnvName, setSelectedEnvName] = useState('');
+  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchEnvironments = async () => {
       try {
-        const res = await axios.get('/api/environment/getEnvironments/68452e3a837ff10bf4c35b0f');
+        const token = localStorage.getItem("token");
+        if (!token) return;
+
+        const decoded = jwtDecode(token);
+        const userId = decoded.id;
+
+        const res = await axios.get(
+          `https://water-watch-si4e.vercel.app/api/environment/getEnvironments/${userId}`
+        );
         setEnvironments(res.data.environments);
       } catch (err) {
         console.error('Error fetching environments:', err);
@@ -43,7 +53,6 @@ const DashBoardGraphs = () => {
     fetchEnvironments();
   }, []);
 
-  // Count statuses for pie chart
   const statusCounts = environments.reduce(
     (acc, env) => {
       const status = (env.status || 'unknown').toLowerCase();
@@ -92,6 +101,25 @@ const DashBoardGraphs = () => {
     setSelectedRecs([]);
     setSelectedEnvName('');
   };
+
+  // ✅ No environments UI
+  if (environments.length === 0) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center px-4 text-center">
+        <PlusCircle className="h-20 w-20 text-blue-500 mb-4" />
+        <h2 className="text-2xl font-semibold text-gray-700 mb-2">No environments added yet</h2>
+        <p className="text-gray-500 mb-6">
+          You haven't added any water environments to monitor. Start by adding one!
+        </p>
+        <button
+          onClick={() => navigate('/environments')}
+          className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 transition"
+        >
+          Add Environment
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-7xl mx-auto px-6 py-10 space-y-12">
@@ -154,7 +182,7 @@ const DashBoardGraphs = () => {
               {env.recommandations && env.recommandations.length > 1 && (
                 <button
                   onClick={() => openModal(env.recommandations, env.name)}
-                  className="mt-3 text-xs text-blue-600 hover:underline focus:outline-none "
+                  className="mt-3 text-xs text-blue-600 hover:underline focus:outline-none"
                 >
                   View All Recommendations
                 </button>
@@ -164,7 +192,6 @@ const DashBoardGraphs = () => {
         })}
       </div>
 
-      {/* Modal */}
       {modalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
           <div className="bg-white rounded-xl max-w-md w-full p-6 relative shadow-lg">

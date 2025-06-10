@@ -9,13 +9,4 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
-   server: {
-    proxy: {
-      '/api': {
-        target: 'https://water-watch-si4e.vercel.app',
-        changeOrigin: true,
-        secure: false,
-      },
-    },
-  },
 })

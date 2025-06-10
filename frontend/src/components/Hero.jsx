@@ -1,3 +1,5 @@
+import { Link } from "react-router-dom";
+
 export default function Hero() {
   return (
     <section className="bg-blue-0">
@@ -10,9 +12,9 @@ export default function Hero() {
             WaterWatch empowers local communities to monitor the health of rivers, ponds, and wells in real-time — without lab equipment.
           </p>
           <div className="space-x-4">
-            <a href="#dashboard" className="px-6 py-3 bg-blue-500 text-white rounded-xl hover:bg-blue-400 transition">
-              Add Environment
-            </a>
+            <Link to="/environments" className="px-6 py-3 bg-blue-500 text-white rounded-xl hover:bg-blue-400 transition">
+              Check Environments
+            </Link>
           </div>
         </div>
 

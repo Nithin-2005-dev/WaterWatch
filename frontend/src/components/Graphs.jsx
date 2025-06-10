@@ -38,7 +38,6 @@ const colors = {
   Trihalomethanes: 'rgba(244,114,182,1)',
 };
 
-// Normalize function scales values between 0 and 1 based on min and max of the array
 const normalize = (arr) => {
   const max = Math.max(...arr);
   const min = Math.min(...arr);
@@ -46,29 +45,57 @@ const normalize = (arr) => {
 };
 
 const Graphs = () => {
-    const {id}=useParams()
+  const { id } = useParams();
   const [labels, setLabels] = useState([]);
   const [readings, setReadings] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
-      const res = await fetch(`/api/waterReadings/getWaterReadings/${id}`);
-      const json = await res.json();
-      const data = json.data;
-
-      setLabels(data.map((d) => new Date(d.createdAt).toLocaleDateString()));
-      setReadings(data);
+      try {
+        const res = await fetch(`https://water-watch-si4e.vercel.app/api/waterReadings/getWaterReadings/${id}`);
+        const json = await res.json();
+        const data = json.data || [];
+        setLabels(data.map((d) => new Date(d.createdAt).toLocaleDateString()));
+        setReadings(data);
+      } catch (err) {
+        console.error("Failed to fetch data:", err);
+      } finally {
+        setLoading(false);
+      }
     };
     fetchData();
-  }, []);
+  }, [id]);
 
-  // Normalized line chart data (over time)
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[70vh] text-blue-600 text-xl font-semibold">
+        Loading data...
+      </div>
+    );
+  }
+
+  if (readings.length === 0) {
+    return (
+      <div className="flex items-center justify-center min-h-[70vh] px-4">
+        <div className="text-center">
+          <img
+            src="https://i.imghippo.com/files/sLML6798MI.png"
+            alt="No data"
+            className="mx-auto w-60 mb-6"
+          />
+          <h2 className="text-2xl font-semibold text-gray-700">No Water Readings Available</h2>
+          <p className="text-gray-500 mt-2">Data for this water body hasn’t been recorded yet.</p>
+        </div>
+      </div>
+    );
+  }
+
   const normalizedChartData = {
     labels,
     datasets: Object.keys(colors).map((key) => {
       const raw = readings.map((d) => d[key]);
       const normalized = normalize(raw);
-
       return {
         label: key + ' (normalized)',
         data: normalized,
@@ -93,13 +120,12 @@ const Graphs = () => {
     },
   };
 
-  // Prediction line chart data
   const predictionChartData = {
     labels,
     datasets: [
       {
         label: 'Prediction (1 = Unsafe, 0 = Safe)',
-        data: readings.map((d) => (d.prediction ? 0 : 1)),
+        data: readings.map((d) => (d.prediction ? 1 : 0)),
         borderColor: 'rgba(239,68,68,1)',
         backgroundColor: 'rgba(239,68,68,0.2)',
         tension: 0.2,
@@ -127,8 +153,6 @@ const Graphs = () => {
     },
   };
 
-  // --- RADAR CHART WITH NORMALIZED VALUES ---
-  // Calculate min and max for each parameter across all readings for normalization
   const minMaxMap = {};
   Object.keys(colors).forEach((key) => {
     const values = readings.map((d) => d[key]);
@@ -138,14 +162,11 @@ const Graphs = () => {
     };
   });
 
-  // Normalize latest reading values for radar chart
-  const latestReading = readings.length > 0 ? readings[readings.length - 1] : null;
-  const normalizedRadarData = latestReading
-    ? Object.keys(colors).map((key) => {
-        const { min, max } = minMaxMap[key];
-        return (latestReading[key] - min) / (max - min || 1);
-      })
-    : [];
+  const latestReading = readings[readings.length - 1];
+  const normalizedRadarData = Object.keys(colors).map((key) => {
+    const { min, max } = minMaxMap[key];
+    return (latestReading[key] - min) / (max - min || 1);
+  });
 
   const radarData = {
     labels: Object.keys(colors),
@@ -166,26 +187,26 @@ const Graphs = () => {
     scales: {
       r: {
         beginAtZero: true,
-        max: 1, // Because data normalized between 0 and 1
+        max: 1,
         ticks: { stepSize: 0.2 },
       },
     },
     plugins: { title: { display: true, text: 'Radar Chart - Latest Reading (Normalized)' } },
   };
 
-  // Scatter plot - pH vs Turbidity colored by prediction
   const scatterData = {
     datasets: [
       {
         label: 'Water Samples',
         data: readings.map((r) => ({ x: r.ph, y: r.Turbidity })),
         backgroundColor: readings.map((r) =>
-          r.prediction ? 'rgba(239,68,68,0.8)' : 'rgba(34,197,94,0.8)',
+          r.prediction ? 'rgba(239,68,68,0.8)' : 'rgba(34,197,94,0.8)'
         ),
         pointRadius: 5,
       },
     ],
   };
+
   const scatterOptions = {
     responsive: true,
     plugins: {
@@ -210,9 +231,8 @@ const Graphs = () => {
     },
   };
 
-  // pH Gauge chart for latest pH
-  const latestPH = latestReading ? latestReading.ph : 7; // default neutral pH
-  const phNormalized = latestPH / 14; // scale 0-14 to 0-1
+  const latestPH = latestReading.ph || 7;
+  const phNormalized = latestPH / 14;
 
   return (
     <div className="max-w-5xl mx-auto p-6 space-y-16 bg-gray-50 rounded-xl shadow-lg my-2">
@@ -238,17 +258,12 @@ const Graphs = () => {
         </p>
       </section>
 
-      {/* Radar & Gauge side by side */}
+      {/* Radar & Gauge */}
       <section className="grid grid-cols-1 md:grid-cols-2 gap-10 max-w-4xl mx-auto">
         <div className="bg-white p-6 rounded-lg shadow-md flex flex-col items-center max-w-[480px] mx-auto">
           <h2 className="text-xl font-semibold mb-4">Latest Water Quality Snapshot (Radar)</h2>
-          {latestReading ? (
-            <Radar data={radarData} options={radarOptions} className="max-h-[360px] w-full" />
-          ) : (
-            <p className="text-gray-500">Loading...</p>
-          )}
+          <Radar data={radarData} options={radarOptions} className="max-h-[360px] w-full" />
         </div>
-
         <div className="bg-white p-6 rounded-lg shadow-md flex flex-col items-center justify-center max-w-[480px] mx-auto">
           <h2 className="text-xl font-semibold mb-4">pH Level Gauge (Latest)</h2>
           <GaugeChart
@@ -269,11 +284,7 @@ const Graphs = () => {
       {/* Scatter Plot */}
       <section className="bg-white p-6 rounded-lg shadow-md max-w-4xl mx-auto">
         <h2 className="text-xl font-semibold mb-4">Scatter Plot: pH vs Turbidity</h2>
-        {readings.length > 0 ? (
-          <Scatter data={scatterData} options={scatterOptions} className="h-64 max-h-[400px]" />
-        ) : (
-          <p className="text-gray-500">Loading...</p>
-        )}
+        <Scatter data={scatterData} options={scatterOptions} className="h-64 max-h-[400px]" />
       </section>
     </div>
   );
