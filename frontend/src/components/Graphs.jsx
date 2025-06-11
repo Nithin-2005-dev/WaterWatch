@@ -126,7 +126,7 @@ const Graphs = () => {
     datasets: [
       {
         label: 'Prediction (1 = Unsafe, 0 = Safe)',
-        data: readings.map((d) => (d.prediction ? 1 : 0)),
+        data: readings.map((d) => (!d.prediction ? 1 : 0)),
         borderColor: 'rgba(239,68,68,1)',
         backgroundColor: 'rgba(239,68,68,0.2)',
         tension: 0.2,
